@@ -236,6 +236,14 @@ def triton_dtype_to_torch_dtype(dtype: str):
         return torch.float64
     elif dtype == "bf16":
         return torch.bfloat16
+    elif dtype == "i64":
+        return torch.int64
+    elif dtype == "i32":
+        return torch.int32
+    elif dtype == "i16":
+        return torch.int16
+    elif dtype == "i8":
+        return torch.int8
     elif dtype.startswith("f8"):
         # Any fp8 type should work in our test cases
         return torch.float8_e5m2
