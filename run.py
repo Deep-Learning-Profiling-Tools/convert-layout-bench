@@ -178,7 +178,7 @@ tt.func public @kernel_0d1d(%arg0: !tt.ptr<{dtype}> {{tt.divisibility = 16 : i32
     %11 = tt.load %10 : tensor<{M}x{N}x!tt.ptr<{dtype}>, #{src_layout}>
     %tmp = triton_gpu.convert_layout %11 : tensor<{M}x{N}x{dtype}, #{src_layout}> -> tensor<{M}x{N}x{dtype}, #{dst_layout}>
     %idx = arith.constant 0 : i32
-    %ub = arith.constant 128 : i32
+    %ub = arith.constant 1024 : i32
     %step = arith.constant 1 : i32
     %12 = scf.for %i = %idx to %ub step %step iter_args(%arg = %tmp) -> (tensor<{M}x{N}x{dtype}, #{dst_layout}>) : i32 {{
         %result = triton_gpu.convert_layout %11 : tensor<{M}x{N}x{dtype}, #{src_layout}> -> tensor<{M}x{N}x{dtype}, #{dst_layout}>
@@ -229,9 +229,9 @@ def triton_dtype_to_torch_dtype(dtype: str):
 
 def execute(kernel, convert_layout: ConvertLayout):
     src = torch.randn(convert_layout.input_tensor.shape,
-                      dtype=triton_dtype_to_torch_dtype(convert_layout.input_tensor.dtype))
+                      dtype=triton_dtype_to_torch_dtype(convert_layout.input_tensor.dtype), device='cuda')
     dst = torch.zeros(convert_layout.output_tensor.shape,
-                      dtype=triton_dtype_to_torch_dtype(convert_layout.output_tensor.dtype))
+                      dtype=triton_dtype_to_torch_dtype(convert_layout.output_tensor.dtype), device='cuda')
     kernel[(1, 1, 1)](src.data_ptr(), dst.data_ptr())
     torch.testing.assert_close(
         dst, src, msg="Mismatch between src and dst")
@@ -244,6 +244,5 @@ def execute(kernel, convert_layout: ConvertLayout):
 input_file = sys.argv[1]
 convert_layout = parse_file(input_file)
 ttgir = generate_ttgir(convert_layout)
-print(ttgir)
 kernel = compile_ttgir(ttgir)
 execute(kernel, convert_layout)
