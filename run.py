@@ -176,7 +176,14 @@ tt.func public @kernel_0d1d(%arg0: !tt.ptr<{dtype}> {{tt.divisibility = 16 : i32
     %9 = arith.addi %8, %7 : tensor<{M}x{N}xi32, #{src_layout}>
     %10 = tt.addptr %2, %9 : tensor<{M}x{N}x!tt.ptr<{dtype}>, #{src_layout}>, tensor<{M}x{N}xi32, #{src_layout}>
     %11 = tt.load %10 : tensor<{M}x{N}x!tt.ptr<{dtype}>, #{src_layout}>
-    %12 = triton_gpu.convert_layout %11 : tensor<{M}x{N}x{dtype}, #{src_layout}> -> tensor<{M}x{N}x{dtype}, #{dst_layout}>
+    %tmp = triton_gpu.convert_layout %11 : tensor<{M}x{N}x{dtype}, #{src_layout}> -> tensor<{M}x{N}x{dtype}, #{dst_layout}>
+    %idx = arith.constant 0 : i32
+    %ub = arith.constant 1024 : i32
+    %step = arith.constant 1 : i32
+    %12 = scf.for %i = %idx to %ub step %step iter_args(%arg = %tmp) -> (tensor<{M}x{N}x{dtype}, #{dst_layout}>) : i32 {{
+        %result = triton_gpu.convert_layout %11 : tensor<{M}x{N}x{dtype}, #{src_layout}> -> tensor<{M}x{N}x{dtype}, #{dst_layout}>
+        scf.yield %result : tensor<{M}x{N}x{dtype}, #{dst_layout}>
+    }}
     %13 = triton_gpu.convert_layout %9 : tensor<{M}x{N}xi32, #{src_layout}> -> tensor<{M}x{N}xi32, #{dst_layout}>
     %14 = tt.addptr %3, %13 : tensor<{M}x{N}x!tt.ptr<{dtype}>, #{dst_layout}>, tensor<{M}x{N}xi32, #{dst_layout}>
     tt.store %14, %12 : tensor<{M}x{N}x!tt.ptr<{dtype}>, #{dst_layout}>
@@ -229,7 +236,7 @@ def execute(kernel, convert_layout: ConvertLayout):
     torch.testing.assert_close(
         dst, src, msg="Mismatch between src and dst")
 
-    time = triton.testing.do_bench(lambda: kernel[(1, 1, 1)](
+    time = triton.testing.do_bench_cudagraph(lambda: kernel[(1, 1, 1)](
         src.data_ptr(), dst.data_ptr()), warmup=10, rep=100)
     print(f"Kernel execution time: {time}")
 
@@ -237,5 +244,6 @@ def execute(kernel, convert_layout: ConvertLayout):
 input_file = sys.argv[1]
 convert_layout = parse_file(input_file)
 ttgir = generate_ttgir(convert_layout)
+print(ttgir)
 kernel = compile_ttgir(ttgir)
 execute(kernel, convert_layout)
