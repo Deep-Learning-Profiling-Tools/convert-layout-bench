@@ -135,17 +135,32 @@ def parse_convert_layout(convert_layout_line, layout_dict, layout_lines):
 
 
 def parse_file(input_file):
-    layout_dict = {}
+    convert_layouts = []
     with open(input_file, 'r') as f:
         lines = f.readlines()
-        layout_lines = lines[:-1]
-        convert_layout_line = lines[-1]
-        for layout_line in layout_lines:
-            name, layout = parse_layout(layout_line)
-            layout_dict[name] = layout
-        convert_layout = parse_convert_layout(
-            convert_layout_line, layout_dict, layout_lines)
-    return convert_layout
+        sections = []
+        cur_section = []
+        for i in range(len(lines)):
+            if lines[i].startswith("// --"):
+                if len(cur_section) > 0:
+                    sections.append(cur_section)
+                cur_section = []
+            elif len(lines[i].strip()) > 0:
+                cur_section.append(lines[i])
+        if len(cur_section) > 0:
+            sections.append(cur_section)
+
+        layout_dict = {}
+        for section in sections:
+            layout_lines = section[:-1]
+            convert_layout_line = section[-1]
+            for layout_line in layout_lines:
+                name, layout = parse_layout(layout_line)
+                layout_dict[name] = layout
+            convert_layout = parse_convert_layout(
+                convert_layout_line, layout_dict, layout_lines)
+            convert_layouts.append(convert_layout)
+    return convert_layouts
 
 
 def generate_ttgir1d(convert_layout: ConvertLayout):
@@ -220,29 +235,35 @@ def triton_dtype_to_torch_dtype(dtype: str):
         return torch.float64
     elif dtype == "bf16":
         return torch.bfloat16
-    elif dtype == "f8":
+    elif dtype.startswith("f8"):
         # Any fp8 type should work in our test cases
         return torch.float8_e5m2
     else:
         raise ValueError(f"Unknown dtype: {dtype}")
 
 
-def execute(kernel, convert_layout: ConvertLayout):
+def execute(index, kernel, convert_layout: ConvertLayout):
+    torch_dtype = triton_dtype_to_torch_dtype(
+        convert_layout.input_tensor.dtype)
     src = torch.randn(convert_layout.input_tensor.shape,
-                      dtype=triton_dtype_to_torch_dtype(convert_layout.input_tensor.dtype), device='cuda')
+                      device='cuda').to(torch_dtype)
     dst = torch.zeros(convert_layout.output_tensor.shape,
-                      dtype=triton_dtype_to_torch_dtype(convert_layout.output_tensor.dtype), device='cuda')
+                      device='cuda').to(torch_dtype)
     kernel[(1, 1, 1)](src.data_ptr(), dst.data_ptr())
     torch.testing.assert_close(
         dst, src, msg="Mismatch between src and dst")
 
     time = triton.testing.do_bench_cudagraph(
         lambda: kernel[(1, 1, 1)](src.data_ptr(), dst.data_ptr()), rep=100)
-    print(f"Kernel execution time: {time}")
+    print(f"Kernel {index} execution time: {time}")
 
 
 input_file = sys.argv[1]
-convert_layout = parse_file(input_file)
-ttgir = generate_ttgir(convert_layout)
-kernel = compile_ttgir(ttgir)
-execute(kernel, convert_layout)
+convert_layouts = parse_file(input_file)
+
+for i, convert_layout in enumerate(convert_layouts):
+    print(convert_layout)
+    ttgir = generate_ttgir(convert_layout)
+    print(ttgir)
+    kernel = compile_ttgir(ttgir)
+    execute(i, kernel, convert_layout)
