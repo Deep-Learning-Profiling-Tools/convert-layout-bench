@@ -1,5 +1,6 @@
 import sys
 import tempfile
+import math
 import triton
 import torch
 from typing import Union, Optional
@@ -84,7 +85,7 @@ class Tensor:
 class ConvertLayout:
     input_tensor: Tensor
     output_tensor: Tensor
-    pers_per_cta: int
+    warps_per_cta: int
     layout_lines: list[str]
 
 
@@ -125,11 +126,11 @@ def parse_convert_layout(convert_layout_line, layout_dict, layout_lines):
         shape_and_dtype_str=input_tensor_shape_and_dtype_str, layout=input_tensor_layout)
     output_tensor = Tensor(
         shape_and_dtype_str=output_tensor_shape_and_dtype_str, layout=output_tensor_layout)
-    import math
     warps_per_cta = 4
     for _, layout in layout_dict.items():
         if isinstance(layout, (NvidiaMmaLayout, BlockedLayout)):
             warps_per_cta = math.prod(layout.warps_per_cta)
+            print(f"Warps per CTA: {warps_per_cta}")
             break
     return ConvertLayout(input_tensor, output_tensor, warps_per_cta, layout_lines)
 
@@ -172,7 +173,7 @@ def generate_ttgir2d(convert_layout: ConvertLayout):
     dtype = convert_layout.input_tensor.dtype
     src_layout = convert_layout.input_tensor.layout.name
     dst_layout = convert_layout.output_tensor.layout.name
-    warps_per_cta = convert_layout.pers_per_cta
+    warps_per_cta = convert_layout.warps_per_cta
 
     layout_lines = "".join(convert_layout.layout_lines)
 
