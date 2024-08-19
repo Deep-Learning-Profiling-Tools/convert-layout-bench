@@ -272,6 +272,5 @@ convert_layouts = parse_file(input_file)
 
 for i, convert_layout in enumerate(convert_layouts):
     ttgir = generate_ttgir("kernel" + str(i), convert_layout)
-    print(ttgir)
     kernel = compile_ttgir(ttgir)
     execute(i, kernel, convert_layout)
