@@ -151,8 +151,8 @@ def parse_file(input_file):
         if len(cur_section) > 0:
             sections.append(cur_section)
 
-        layout_dict = {}
         for section in sections:
+            layout_dict = {}
             layout_lines = section[:-1]
             convert_layout_line = section[-1]
             for layout_line in layout_lines:
