@@ -31,7 +31,8 @@ class BlockedLayout(Layout):
             '=')[3].split(',')[0].split('[')[1].split(']')[0].split(',')))
         self.warps_per_cta = list(map(int, self.layout_line.split(
             '=')[4].split(',')[0].split('[')[1].split(']')[0].split(',')))
-        self.order = list(map(int, self.layout_line.split('=')[5].split(',')[0].split('[')[1].split(']')[0].split(',')))
+        self.order = list(map(int, self.layout_line.split('=')[5].split(',')[
+                          0].split('[')[1].split(']')[0].split(',')))
 
 
 @ dataclass
@@ -46,8 +47,10 @@ class NvidiaMmaLayout(Layout):
         # e.g., #mma = #triton_gpu.nvidia_mma<{versionMajor = 3, versionMinor = 0, warpsPerCTA = [8, 1], instrShape = [16, 256, 16]}>
         self.version_major = int(self.layout_line.split('=')[2].split(',')[0])
         self.version_minor = int(self.layout_line.split('=')[3].split(',')[0])
-        self.warps_per_cta = list(map(int, self.layout_line.split('=')[4].split('[')[1].split(']')[0].split(',')))
-        self.instr_shape = list(map(int, self.layout_line.split('=')[5].split('[')[1].split(']')[0].split(',')))
+        self.warps_per_cta = list(map(int, self.layout_line.split(
+            '=')[4].split('[')[1].split(']')[0].split(',')))
+        self.instr_shape = list(map(int, self.layout_line.split(
+            '=')[5].split('[')[1].split(']')[0].split(',')))
 
 
 @ dataclass
@@ -103,17 +106,25 @@ def parse_convert_layout(convert_layout_line, layout_dict, layout_lines):
     # e.g., %149 = triton_gpu.convert_layout %145 : tensor<256xf32, #blocked> -> tensor<256xf32, #triton_gpu.slice<{dim = 0, parent = #mma}>>
     # remove = if exists
     convert_layout_line = convert_layout_line.split('=')[1].strip()
-    input_tensor_str = convert_layout_line.split(':')[1].strip().split('->')[0].strip()
-    output_tensor_str = convert_layout_line.split(':')[1].strip().split('->')[1].strip()
+    input_tensor_str = convert_layout_line.split(
+        ':')[1].strip().split('->')[0].strip()
+    output_tensor_str = convert_layout_line.split(
+        ':')[1].strip().split('->')[1].strip()
     # e.g., tensor<256xf32, #blocked>
-    input_tensor_shape_and_dtype_str = input_tensor_str.split('<')[1].split(',')[0]
-    output_tensor_shape_and_dtype_str = output_tensor_str.split('<')[1].split(',')[0]
-    input_tensor_layout_name = input_tensor_str.split('<')[1].split(',')[1].split('>')[0].split('#')[1]
-    output_tensor_layout_name = output_tensor_str.split('<')[1].split(',')[1].split('>')[0].split('#')[1]
+    input_tensor_shape_and_dtype_str = input_tensor_str.split('<')[
+        1].split(',')[0]
+    output_tensor_shape_and_dtype_str = output_tensor_str.split('<')[
+        1].split(',')[0]
+    input_tensor_layout_name = input_tensor_str.split(
+        '<')[1].split(',')[1].split('>')[0].split('#')[1]
+    output_tensor_layout_name = output_tensor_str.split(
+        '<')[1].split(',')[1].split('>')[0].split('#')[1]
     input_tensor_layout = layout_dict[input_tensor_layout_name]
     output_tensor_layout = layout_dict[output_tensor_layout_name]
-    input_tensor = Tensor(shape_and_dtype_str=input_tensor_shape_and_dtype_str, layout=input_tensor_layout)
-    output_tensor = Tensor(shape_and_dtype_str=output_tensor_shape_and_dtype_str, layout=output_tensor_layout)
+    input_tensor = Tensor(
+        shape_and_dtype_str=input_tensor_shape_and_dtype_str, layout=input_tensor_layout)
+    output_tensor = Tensor(
+        shape_and_dtype_str=output_tensor_shape_and_dtype_str, layout=output_tensor_layout)
     import math
     warps_per_cta = 4
     for _, layout in layout_dict.items():
@@ -132,7 +143,8 @@ def parse_file(input_file):
         for layout_line in layout_lines:
             name, layout = parse_layout(layout_line)
             layout_dict[name] = layout
-        convert_layout = parse_convert_layout(convert_layout_line, layout_dict, layout_lines)
+        convert_layout = parse_convert_layout(
+            convert_layout_line, layout_dict, layout_lines)
     return convert_layout
 
 
@@ -213,9 +225,13 @@ def execute(kernel, convert_layout: ConvertLayout):
                       dtype=triton_dtype_to_torch_dtype(convert_layout.input_tensor.dtype))
     dst = torch.zeros(convert_layout.output_tensor.shape,
                       dtype=triton_dtype_to_torch_dtype(convert_layout.output_tensor.dtype))
-    kernel[(1,)](src, dst)
+    kernel[(1, 1, 1)](src.data_ptr(), dst.data_ptr())
     torch.testing.assert_close(
         dst, src, msg="Mismatch between src and dst")
+
+    time = triton.testing.do_bench(lambda: kernel[(1, 1, 1)](
+        src.data_ptr(), dst.data_ptr()), warmup=10, rep=100)
+    print(f"Kernel execution time: {time}")
 
 
 input_file = sys.argv[1]
