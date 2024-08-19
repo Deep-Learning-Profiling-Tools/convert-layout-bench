@@ -164,11 +164,11 @@ def parse_file(input_file):
     return convert_layouts
 
 
-def generate_ttgir1d(convert_layout: ConvertLayout):
+def generate_ttgir1d(kernel_name: str, convert_layout: ConvertLayout):
     pass
 
 
-def generate_ttgir2d(convert_layout: ConvertLayout):
+def generate_ttgir2d(kernel_name: str, convert_layout: ConvertLayout):
     M, N = convert_layout.input_tensor.shape
     dtype = convert_layout.input_tensor.dtype
     src_layout = convert_layout.input_tensor.layout.name
@@ -178,7 +178,7 @@ def generate_ttgir2d(convert_layout: ConvertLayout):
     layout_lines = "".join(convert_layout.layout_lines)
 
     ir = layout_lines + f"""module attributes {{"triton_gpu.num-warps" = {warps_per_cta} : i32, "triton_gpu.num-ctas" = 1 : i32, "triton_gpu.threads-per-warp" = 32 : i32}} {{
-tt.func public @kernel_0d1d(%arg0: !tt.ptr<{dtype}> {{tt.divisibility = 16 : i32}}, %arg1: !tt.ptr<{dtype}> {{tt.divisibility = 16 : i32}}) {{
+tt.func public @{kernel_name}(%arg0: !tt.ptr<{dtype}> {{tt.divisibility = 16 : i32}}, %arg1: !tt.ptr<{dtype}> {{tt.divisibility = 16 : i32}}) {{
     %cst = arith.constant dense<{N}> : tensor<{M}x1xi32, #{src_layout}>
     %0 = tt.make_range {{end = {M} : i32, start = 0 : i32}} : tensor<{M}xi32, #triton_gpu.slice<{{dim=1, parent=#{src_layout}}}>>
     %1 = tt.make_range {{end = {N} : i32, start = 0 : i32}} : tensor<{N}xi32, #triton_gpu.slice<{{dim=0, parent=#{src_layout}}}>>
@@ -210,11 +210,11 @@ tt.func public @kernel_0d1d(%arg0: !tt.ptr<{dtype}> {{tt.divisibility = 16 : i32
     return ir
 
 
-def generate_ttgir(convert_layout: ConvertLayout):
+def generate_ttgir(kernel_name: str, convert_layout: ConvertLayout):
     if len(convert_layout.input_tensor.shape) == 1:
-        return generate_ttgir1d(convert_layout)
+        return generate_ttgir1d(kernel_name, convert_layout)
     elif len(convert_layout.input_tensor.shape) == 2:
-        return generate_ttgir2d(convert_layout)
+        return generate_ttgir2d(kernel_name, convert_layout)
     else:
         raise ValueError("Only support 1D or 2D tensor for now")
 
@@ -263,8 +263,7 @@ input_file = sys.argv[1]
 convert_layouts = parse_file(input_file)
 
 for i, convert_layout in enumerate(convert_layouts):
-    print(convert_layout)
-    ttgir = generate_ttgir(convert_layout)
+    ttgir = generate_ttgir("kernel" + str(i), convert_layout)
     print(ttgir)
     kernel = compile_ttgir(ttgir)
     execute(i, kernel, convert_layout)
