@@ -16,21 +16,17 @@
 %412 = triton_gpu.convert_layout %411 : tensor<128x256xf8E5M2, #mma> -> tensor<128x256xf8E5M2, #blocked3> loc(#loc345)
 // --------------
 #blocked = #triton_gpu.blocked<{sizePerThread = [1], threadsPerWarp = [32], warpsPerCTA = [8], order = [0]}>
-#blocked2 = #triton_gpu.blocked<{sizePerThread = [1, 8], threadsPerWarp = [1, 32], warpsPerCTA = [8, 1], order = [1, 0]}>
 #mma = #triton_gpu.nvidia_mma<{versionMajor = 3, versionMinor = 0, warpsPerCTA = [8, 1], instrShape = [16, 256, 16]}>
 %149 = triton_gpu.convert_layout %145 : tensor<256xf32, #blocked> -> tensor<256xf32, #triton_gpu.slice<{dim = 0, parent = #mma}>> loc(#loc216)
 // --------------
-#blocked = #triton_gpu.blocked<{sizePerThread = [1], threadsPerWarp = [32], warpsPerCTA = [8], order = [0]}>
 #blocked2 = #triton_gpu.blocked<{sizePerThread = [1, 8], threadsPerWarp = [1, 32], warpsPerCTA = [8, 1], order = [1, 0]}>
 #mma = #triton_gpu.nvidia_mma<{versionMajor = 3, versionMinor = 0, warpsPerCTA = [8, 1], instrShape = [16, 256, 16]}>
 %428 = triton_gpu.convert_layout %427 : tensor<128x256xf16, #mma> -> tensor<128x256xf16, #blocked2> loc(#loc368)
 // --------------
 #blocked = #triton_gpu.blocked<{sizePerThread = [1], threadsPerWarp = [32], warpsPerCTA = [8], order = [0]}>
-#blocked2 = #triton_gpu.blocked<{sizePerThread = [1, 16], threadsPerWarp = [2, 16], warpsPerCTA = [8, 1], order = [1, 0]}>
 #mma = #triton_gpu.nvidia_mma<{versionMajor = 3, versionMinor = 0, warpsPerCTA = [8, 1], instrShape = [16, 256, 32]}>
 %133 = triton_gpu.convert_layout %132 : tensor<256xf32, #blocked> -> tensor<256xf32, #triton_gpu.slice<{dim = 0, parent = #mma}>> loc(#loc214)
 // --------------
-#blocked = #triton_gpu.blocked<{sizePerThread = [1], threadsPerWarp = [32], warpsPerCTA = [8], order = [0]}>
 #blocked2 = #triton_gpu.blocked<{sizePerThread = [1, 16], threadsPerWarp = [2, 16], warpsPerCTA = [8, 1], order = [1, 0]}>
 #mma = #triton_gpu.nvidia_mma<{versionMajor = 3, versionMinor = 0, warpsPerCTA = [8, 1], instrShape = [16, 256, 32]}>
 %409 = triton_gpu.convert_layout %408 : tensor<128x256xf8E4M3FNUZ, #mma> -> tensor<128x256xf8E4M3FNUZ, #blocked2> loc(#loc364)
