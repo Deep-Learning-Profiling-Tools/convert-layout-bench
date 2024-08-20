@@ -59,6 +59,9 @@ class SliceLayout(Layout):
     dim: Optional[int] = None
     parent: Optional[Layout] = None
 
+    def __post_init__(self):
+        pass
+
 
 @ dataclass
 class Tensor:
@@ -105,9 +108,9 @@ def extract_tensor_info(tensor_str, layout_dict):
 
     # e.g., tensor<256xf32, #triton_gpu.slice<{dim = 0, parent = #mma}>>
     if "triton_gpu.slice" in tensor_str:
-        dim = int(tensor_str.split('<')[1].split(',')[0].split('=')[1])
-        parent_str = tensor_str.split('<')[1].split(',')[
-            1].split('=')[1].strip()
+        dim = int(tensor_str.split('<')[2].split(',')[0].split('=')[1])
+        parent_str = tensor_str.split('<')[2].split(',')[
+            1].split('=')[1].split('}')[0].split('#')[1]
         parent_layout = layout_dict[parent_str]
         layout_name = f"triton_gpu.slice<dim = {dim}, parent = #{parent_str}>"
         layout = SliceLayout(
@@ -121,11 +124,9 @@ def extract_tensor_info(tensor_str, layout_dict):
 def parse_convert_layout(convert_layout_line, layout_dict, layout_lines):
     # e.g., %149 = triton_gpu.convert_layout %145 : tensor<256xf32, #blocked> -> tensor<256xf32, #triton_gpu.slice<{dim = 0, parent = #mma}>>
     # remove = if exists
-    convert_layout_line = convert_layout_line.split('=')[1].strip()
-    input_tensor_str = convert_layout_line.split(
-        ':')[1].strip().split('->')[0].strip()
-    output_tensor_str = convert_layout_line.split(
-        ':')[1].strip().split('->')[1].strip()
+    convert_layout_line = convert_layout_line.split(':')[1].strip()
+    input_tensor_str = convert_layout_line.split('->')[0].strip()
+    output_tensor_str = convert_layout_line.split('->')[1].strip()  
     input_tensor_shape_and_dtype_str, input_tensor_layout = extract_tensor_info(
         input_tensor_str, layout_dict)
     output_tensor_shape_and_dtype_str, output_tensor_layout = extract_tensor_info(
