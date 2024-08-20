@@ -57,13 +57,7 @@ class NvidiaMmaLayout(Layout):
 @ dataclass
 class SliceLayout(Layout):
     dim: Optional[int] = None
-    parent: Optional[str] = None
-
-    def __post_init__(self):
-        super().__post_init__()
-        # e.g., #slice = triton_gpu.slice<{dim = 0, parent = #mma}>
-        self.dim = int(self.layout_line.split('=')[2].split(',')[0].strip())
-        self.parent = self.layout_line.split('#')[3].split('}')[0].strip()
+    parent: Optional[Layout] = None
 
 
 @ dataclass
@@ -103,6 +97,26 @@ def parse_layout(layout_line):
         raise ValueError(f"Unknown layout identifier: {layout_identifier}")
 
 
+def extract_tensor_info(tensor_str, layout_dict):
+    # e.g., tensor<256xf32, #blocked>
+    shape_and_dtype_str = tensor_str.split('<')[1].split(',')[0]
+    layout_name = tensor_str.split('<')[1].split(
+        ',')[1].split('>')[0].split('#')[1]
+
+    # e.g., tensor<256xf32, #triton_gpu.slice<{dim = 0, parent = #mma}>>
+    if "triton_gpu.slice" in tensor_str:
+        dim = int(tensor_str.split('<')[1].split(',')[0].split('=')[1])
+        parent_str = tensor_str.split('<')[1].split(',')[
+            1].split('=')[1].strip()
+        parent_layout = layout_dict[parent_str]
+        layout = SliceLayout(
+            layout_line=tensor_str, name=layout_name, dim=dim, parent=parent_layout)
+    else:
+        layout = layout_dict[layout_name]
+
+    return shape_and_dtype_str, layout
+
+
 def parse_convert_layout(convert_layout_line, layout_dict, layout_lines):
     # e.g., %149 = triton_gpu.convert_layout %145 : tensor<256xf32, #blocked> -> tensor<256xf32, #triton_gpu.slice<{dim = 0, parent = #mma}>>
     # remove = if exists
@@ -111,17 +125,11 @@ def parse_convert_layout(convert_layout_line, layout_dict, layout_lines):
         ':')[1].strip().split('->')[0].strip()
     output_tensor_str = convert_layout_line.split(
         ':')[1].strip().split('->')[1].strip()
-    # e.g., tensor<256xf32, #blocked>
-    input_tensor_shape_and_dtype_str = input_tensor_str.split('<')[
-        1].split(',')[0]
-    output_tensor_shape_and_dtype_str = output_tensor_str.split('<')[
-        1].split(',')[0]
-    input_tensor_layout_name = input_tensor_str.split(
-        '<')[1].split(',')[1].split('>')[0].split('#')[1]
-    output_tensor_layout_name = output_tensor_str.split(
-        '<')[1].split(',')[1].split('>')[0].split('#')[1]
-    input_tensor_layout = layout_dict[input_tensor_layout_name]
-    output_tensor_layout = layout_dict[output_tensor_layout_name]
+    input_tensor_shape_and_dtype_str, input_tensor_layout = extract_tensor_info(
+        input_tensor_str, layout_dict)
+    output_tensor_shape_and_dtype_str, output_tensor_layout = extract_tensor_info(
+        output_tensor_str, layout_dict)
+
     input_tensor = Tensor(
         shape_and_dtype_str=input_tensor_shape_and_dtype_str, layout=input_tensor_layout)
     output_tensor = Tensor(
