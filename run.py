@@ -112,7 +112,7 @@ def extract_tensor_info(tensor_str, layout_dict):
         parent_str = tensor_str.split('<')[2].split(',')[
             1].split('=')[1].split('}')[0].split('#')[1]
         parent_layout = layout_dict[parent_str]
-        layout_name = f"triton_gpu.slice<dim = {dim}, parent = #{parent_str}>"
+        layout_name = f"triton_gpu.slice<{{dim = {dim}, parent = #{parent_str}}}>"
         layout = SliceLayout(
             layout_line=tensor_str, name=layout_name, dim=dim, parent=parent_layout)
     else:
