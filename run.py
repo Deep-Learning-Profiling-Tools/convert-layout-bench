@@ -130,7 +130,6 @@ def parse_convert_layout(convert_layout_line, layout_dict, layout_lines):
     for _, layout in layout_dict.items():
         if isinstance(layout, (NvidiaMmaLayout, BlockedLayout)):
             warps_per_cta = math.prod(layout.warps_per_cta)
-            print(f"Warps per CTA: {warps_per_cta}")
             break
     return ConvertLayout(input_tensor, output_tensor, warps_per_cta, layout_lines)
 
@@ -165,7 +164,37 @@ def parse_file(input_file):
 
 
 def generate_ttgir1d(kernel_name: str, convert_layout: ConvertLayout):
-    pass
+    M = convert_layout.input_tensor.shape[0]
+    dtype = convert_layout.input_tensor.dtype
+    src_layout = convert_layout.input_tensor.layout.name
+    dst_layout = convert_layout.output_tensor.layout.name
+    warps_per_cta = convert_layout.warps_per_cta
+
+    layout_lines = "".join(convert_layout.layout_lines)
+
+    ir = layout_lines + f"""module attributes {{"triton_gpu.num-warps" = {warps_per_cta} : i32, "triton_gpu.num-ctas" = 1 : i32, "triton_gpu.threads-per-warp" = 32 : i32}} {{
+tt.func public @{kernel_name}(%arg0: !tt.ptr<{dtype}> {{tt.divisibility = 16 : i32}}, %arg1: !tt.ptr<{dtype}> {{tt.divisibility = 16 : i32}}) {{
+    %0 = tt.make_range {{end = {M} : i32, start = 0 : i32}} : tensor<{M}xi32, #{src_layout}>
+    %1 = tt.splat %arg0 : !tt.ptr<{dtype}> -> tensor<{M}x!tt.ptr<{dtype}>, #{src_layout}>
+    %2 = tt.splat %arg1 : !tt.ptr<{dtype}> -> tensor<{M}x!tt.ptr<{dtype}>, #{dst_layout}>
+    %3 = tt.addptr %1, %0 : tensor<{M}x!tt.ptr<{dtype}>, #{src_layout}>, tensor<{M}xi32, #{src_layout}>
+    %4 = tt.load %3 : tensor<{M}x!tt.ptr<{dtype}>, #{src_layout}>
+    %tmp = triton_gpu.convert_layout %4 : tensor<{M}x{dtype}, #{src_layout}> -> tensor<{M}x{dtype}, #{dst_layout}>
+    %idx = arith.constant 0 : i32
+    %ub = arith.constant 1024 : i32
+    %step = arith.constant 1 : i32
+    %5 = scf.for %i = %idx to %ub step %step iter_args(%arg = %tmp) -> (tensor<{M}x{dtype}, #{dst_layout}>) : i32 {{
+        %result = triton_gpu.convert_layout %4 : tensor<{M}x{dtype}, #{src_layout}> -> tensor<{M}x{dtype}, #{dst_layout}>
+        scf.yield %result : tensor<{M}x{dtype}, #{dst_layout}>
+    }}
+    %6 = tt.make_range {{end = {M} : i32, start = 0 : i32}} : tensor<{M}xi32, #{dst_layout}>
+    %7 = tt.addptr %2, %6 : tensor<{M}x!tt.ptr<{dtype}>, #{dst_layout}>, tensor<{M}xi32, #{dst_layout}>
+    tt.store %7, %5 : tensor<{M}x!tt.ptr<{dtype}>, #{dst_layout}>
+    tt.return
+    }}
+}}
+"""
+    return ir
 
 
 def generate_ttgir2d(kernel_name: str, convert_layout: ConvertLayout):
