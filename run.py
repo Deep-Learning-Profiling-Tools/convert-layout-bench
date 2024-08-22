@@ -32,8 +32,8 @@ class BlockedLayout(Layout):
             '=')[3].split('[')[1].split(']')[0].split(',')))
         self.warps_per_cta = list(map(int, self.layout_line.split(
             '=')[4].split('[')[1].split(']')[0].split(',')))
-        self.order = list(map(int, self.layout_line.split('=')[5].split(',')[
-                          0].split('[')[1].split(']')[0].split(',')))
+        self.order = list(map(int, self.layout_line.split(
+            '=')[5].split('[')[1].split(']')[0].split(',')))
 
 
 @ dataclass
