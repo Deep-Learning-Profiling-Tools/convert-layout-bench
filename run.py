@@ -27,11 +27,11 @@ class BlockedLayout(Layout):
         super().__post_init__()
         # e.g., #blocked = #triton_gpu.blocked<{sizePerThread = [1], threadsPerWarp = [64], warpsPerCTA = [1], order = [0]}
         self.size_per_thread = list(map(int, self.layout_line.split(
-            '=')[2].split(',')[0].split('[')[1].split(']')[0].split(',')))
+            '=')[2].split('[')[1].split(']')[0].split(',')))
         self.threads_per_warp = list(map(int, self.layout_line.split(
-            '=')[3].split(',')[0].split('[')[1].split(']')[0].split(',')))
+            '=')[3].split('[')[1].split(']')[0].split(',')))
         self.warps_per_cta = list(map(int, self.layout_line.split(
-            '=')[4].split(',')[0].split('[')[1].split(']')[0].split(',')))
+            '=')[4].split('[')[1].split(']')[0].split(',')))
         self.order = list(map(int, self.layout_line.split('=')[5].split(',')[
                           0].split('[')[1].split(']')[0].split(',')))
 
@@ -126,7 +126,7 @@ def parse_convert_layout(convert_layout_line, layout_dict, layout_lines):
     # remove = if exists
     convert_layout_line = convert_layout_line.split(':')[1].strip()
     input_tensor_str = convert_layout_line.split('->')[0].strip()
-    output_tensor_str = convert_layout_line.split('->')[1].strip()  
+    output_tensor_str = convert_layout_line.split('->')[1].strip()
     input_tensor_shape_and_dtype_str, input_tensor_layout = extract_tensor_info(
         input_tensor_str, layout_dict)
     output_tensor_shape_and_dtype_str, output_tensor_layout = extract_tensor_info(
